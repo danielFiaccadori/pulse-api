@@ -13,8 +13,47 @@ interface AliveWebSocket extends WebSocket {
   isAlive?: boolean;
 }
 
+function buildIceServers() {
+  const iceServers: Array<{
+    urls: string[];
+    username?: string;
+    credential?: string;
+  }> = [
+    {
+      urls: [
+        'stun:stun.l.google.com:19302',
+        'stun:stun1.l.google.com:19302',
+      ],
+    },
+  ];
+
+  const turnUrlsRaw = process.env.TURN_URLS?.trim();
+  if (turnUrlsRaw) {
+    const urls = turnUrlsRaw
+      .split(',')
+      .map((u) => u.trim())
+      .filter(Boolean);
+    if (urls.length > 0) {
+      iceServers.push({
+        urls,
+        username: process.env.TURN_USERNAME || undefined,
+        credential: process.env.TURN_CREDENTIAL || undefined,
+      });
+    }
+  }
+
+  return iceServers;
+}
+
 const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
+
+  if (req.url === '/ice-servers') {
+    const iceServers = buildIceServers();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ iceServers }));
+    return;
+  }
 
   if (req.url === '/health') {
     const stats = roomManager.getStats();
